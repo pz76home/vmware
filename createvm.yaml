@@ -1,0 +1,50 @@
+# Create a new VM from a template using the new vmware_guest module
+  - name: VM from template
+    hosts: localhost
+    gather_facts: no
+    connection: local
+    vars:
+      vcenter_hostname: 192.168.0.1
+      esxhost: esx-host1.local
+      datastore: ESX-VM
+      network: "Virtual Machines"
+      vmtemplate: Linux_template
+      vmcluster: LAB
+      notes: Created by Ansible
+      dumpfacts: false
+    tasks:
+      - name: Check for required variables
+        fail: msg="Must pass name"
+        when: name is not defined
+
+      - name: Check for vSphere access parameters
+        fail: msg="Must set vcenter_user and vcenter_pass in a Vault"
+        when: (vcenter_user is not defined) or (vcenter_pass is not defined)
+        
+      - name: Create VM from template
+        vmware_guest:
+          validate_certs: no
+          hostname: "{{ vcenter_hostname }}"
+          username: "{{ vcenter_user }}"
+          password: "{{ vcenter_pass }}"
+          esxi_hostname: "{{ esxhost }}"
+          datacenter: Datacenter
+          name: "{{ name }}"
+          template: "{{ vmtemplate }}"
+          disk:
+            - size_gb: "{{ disk_size | default(20) }}"
+              type: thin
+              datastore: "{{ datastore }}"
+          networks:
+            - name: "{{ network }}"
+              device_type: vmxnet3
+          hardware:
+            memory_mb: "{{ vm_memory | default(1024) }}"
+            num_cpus: "{{ cpus | default(2) }}"
+          wait_for_ip_address: yes
+          state: present
+        register: newvm
+        
+      - name: IP address info
+        debug:
+          msg: "{{ newvm.instance.ipv4 }} {{ name }}"
