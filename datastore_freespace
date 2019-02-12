@@ -1,0 +1,49 @@
+- name: VMWare datastore facts
+    hosts: localhost
+    gather_facts: no
+    connection: local
+
+    tasks:
+      - name: Check for vSphere access parameters
+        fail: msg="Must set vcenter_user and vcenter_pass in a Vault"
+        when: (vcenter_user is not defined) or (vcenter_pass is not defined)
+
+      - name: set other facts
+        set_fact:
+          vcenter_hostname: 192.168.0.1
+          vmware_datacenter: "Data Centre 1"
+        when: site == "DC1"
+
+      - name: set other facts
+        set_fact:
+          vcenter_hostname: 192.168.0.2
+          vmware_datacenter: "Data Center 2"
+        when: site == "DC2"
+
+      - name: set other facts
+        set_fact:
+          vcenter_hostname: 192.168.0.3
+          vmware_datacenter: "Data Center 3"
+        when: site == "DC3"
+
+      - name: Gather Datastore information
+        vmware_datastore_facts:
+          validate_certs: no
+          hostname: "{{ vcenter_hostname }}"
+          username: "{{ vcenter_user }}@work.local"
+          password: "{{ vcenter_pass }}"
+          datacenter: "{{ vmware_datacenter }}"
+        register: datastore_facts
+
+      - name: Display Datastore name.
+        set_fact:
+          datastore_name: "{{ datastore_facts | json_query('datastores[].name') }}"
+
+      - name: Datastore Capacity
+        set_fact:
+          capacity: "{{ datastore_facts | json_query('datastores[].freeSpace') }}"
+
+      - name: Datastore list output
+        debug:
+          msg: "{{ item.0 }}  - {{ item.1/1024/1024/1024 }} GB"
+        loop: "{{ datastore_name|zip(capacity)|list }}"
