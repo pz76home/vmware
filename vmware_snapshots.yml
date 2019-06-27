@@ -1,0 +1,52 @@
+# The vm_list array must be inputted as [ 'vm1', 'vm2', 'vm3' ]
+- name: VMWare snapshots
+    hosts: localhost
+    gather_facts: no
+    connection: local
+    vars:
+      notes: Created by Ansible
+      dumpfacts: false
+    tasks:
+      - name: Check for required variables
+        fail: msg="Must pass VM names"
+        when: vm_list is not defined
+
+      - name: Check for vSphere access parameters
+        fail: msg="Must set vcenter_user and vcenter_pass in a Vault"
+        when: (vcenter_user is not defined) or (vcenter_pass is not defined)
+
+      - name: set other facts
+        set_fact:
+          vcenter_hostname: 192.168.0.1
+          vmware_datacenter: "Site1 Data Centre"
+        when: site == "Site1"
+
+      - name: set other facts
+        set_fact:
+          vcenter_hostname: 192.168.0.2
+          vmware_datacenter: "Site2 Data Centre"
+        when: site == "Site2"
+
+      - name: set other facts
+        set_fact:
+          vcenter_hostname: 192.168.0.3
+          vmware_datacenter: "Site3 Data Centre"
+        when: site == "Site3"
+
+      - name: VM snapshot
+        vmware_guest_snapshot:
+          validate_certs: no
+          hostname: "{{ vcenter_hostname }}"
+          username: "{{ vcenter_user }}@work.com"
+          password: "{{ vcenter_pass }}"
+          datacenter: "{{ vmware_datacenter }}"
+          name: "{{ item }}"
+          folder: "/{{ vmware_datacenter }}/vm"
+          state: "{{ snapshot_state }}"
+          snapshot_name: "{{ item }}_patch"
+        loop: "{{ vm_list }}"
+
+      - name: Processed VM's
+        debug:
+          msg: "{{ item }}"
+        loop: "{{ vm_list }}"
